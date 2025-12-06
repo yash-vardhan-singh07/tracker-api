@@ -5,10 +5,14 @@ import Cors from "cors";
 // 🟩 Setup CORS for frontend domain
 const cors = Cors({
   origin: [
-    "https://time-b8qhaeyaw-yash-vardhan-singhs-projects-be014fdb.vercel.app",
-    "https://time-git-main-yash-vardhan-singhs-projects-be014fdb.vercel.app"
+    "https://time-b8qhaeyaw-yash-vardhan-singhs-projects-be014fdb.vercel.app", // Vercel Preview 1
+    "https://time-git-main-yash-vardhan-singhs-projects-be014fdb.vercel.app", // Vercel Preview 2
+    
+    // 👇 ADD THE ACTUAL PRODUCTION FRONTEND DOMAIN
+    "https://www.rewardclaiming.com" 
+    
   ],
-  methods: ["GET", "POST"] // Added GET here for completeness, though POST is the focus
+  methods: ["GET", "POST"]
 });
 
 // 🟩 Run CORS middleware
