@@ -2,6 +2,18 @@ import mongoose from "mongoose";
 import Click from "./models/clicks.js";
 import Cors from "cors";
 
+
+let isConnected = false;
+async function connectDB() {
+  if (!isConnected) {
+    // Ensure MONGODB_URI is available before connecting
+    if (!process.env.MONGODB_URI) {
+      throw new Error("Missing MONGODB_URI environment variable.");
+    }
+    await mongoose.connect(process.env.MONGODB_URI);
+    isConnected = true;
+  }
+}
 // 🟩 Setup CORS for frontend domain
 const cors = Cors({
   origin: [
@@ -28,17 +40,7 @@ function runCors(req, res) {
 }
 
 // 🟩 Connect DB once (Vercel optimization)
-let isConnected = false;
-async function connectDB() {
-  if (!isConnected) {
-    // Ensure MONGODB_URI is available before connecting
-    if (!process.env.MONGODB_URI) {
-      throw new Error("Missing MONGODB_URI environment variable.");
-    }
-    await mongoose.connect(process.env.MONGODB_URI);
-    isConnected = true;
-  }
-}
+
 
 // 🟩 MAIN API HANDLER
 export default async function handler(req, res) {
