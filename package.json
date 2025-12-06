@@ -1,0 +1,13 @@
+{
+  "name": "tracker-api",
+  "version": "1.0.0",
+  "description": "Click tracking api",
+  "main": "api/track.js",
+  "scripts": {
+    "start": "node api/track.js"
+  },
+  "dependencies": {
+    "mongoose": "^8.0.0",   
+    "cors": "^2.8.5"        
+  }
+}
