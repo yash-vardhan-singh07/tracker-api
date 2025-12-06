@@ -32,6 +32,8 @@ async function connectDB() {
 }
 
 export default async function handler(req, res) {
+  console.log("Incoming request", req.method, "Origin:", req.headers.origin);
+
   // 🟩 CORS headers (most important for browser)
   res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
