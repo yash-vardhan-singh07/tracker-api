@@ -106,12 +106,17 @@ export async function handler(event, context) {
       body: JSON.stringify({ success: true, count: result.count })
     };
 
-  } catch (err) {
-    console.error("Track error:", err);
-    return {
-      statusCode: 500,
-      headers: commonHeaders,
-      body: JSON.stringify({ error: "Internal server error" })
-    };
-  }
+// track.js inside the catch block
+} catch (err) {
+  console.error("Track error:", err); // This prints to the Netlify Function Logs
+  return {
+    statusCode: 500,
+    headers: commonHeaders,
+    body: JSON.stringify({ 
+      error: "Internal server error", 
+      details: err.message, // Add this line to see the error in the browser console
+      stack: err.stack 
+    })
+  };
+}
 }
