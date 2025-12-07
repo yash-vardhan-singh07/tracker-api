@@ -9,6 +9,9 @@ async function connectDB() {
   }
 }
 
+// 1. Define allowed countries (using ISO codes)
+const ALLOWED_COUNTRIES = ["US", "CA", "GB", "AU"];
+
 export async function handler(event, context) {
   const origin = event.headers.origin;
 
@@ -19,7 +22,6 @@ export async function handler(event, context) {
     "Content-Type": "application/json"
   };
 
-  // Handle pre-flight OPTIONS request
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 200, headers: commonHeaders, body: "" };
   }
@@ -29,11 +31,26 @@ export async function handler(event, context) {
     const body = JSON.parse(event.body);
     const { page, tag, country, deviceId } = body;
 
-    // 1. Check for existing click by this device to prevent repeat counting
+    // 2. Geo-Restriction Check
+    // Convert to uppercase to ensure the check is case-insensitive
+    if (!country || !ALLOWED_COUNTRIES.includes(country.toUpperCase())) {
+      // Find the current master record to return the count anyway (optional)
+      const master = await Click.findOne({ page, tag, deviceId: { $exists: false } });
+      
+      return {
+        statusCode: 200, // Return 200 to prevent console errors, but success: false
+        headers: commonHeaders,
+        body: JSON.stringify({ 
+          success: false, 
+          message: "Registration restricted to USA, Canada, UK, and Australia",
+          count: master ? master.count : 0
+        })
+      };
+    }
+
+    // 3. Prevent Repeat Counting
     const existingLog = await Click.findOne({ page, tag, deviceId });
-    
     if (existingLog) {
-      // Find current master record to return existing count
       const master = await Click.findOne({ page, tag, deviceId: { $exists: false } });
       return { 
         statusCode: 200, 
@@ -46,12 +63,9 @@ export async function handler(event, context) {
       };
     }
 
-    // 2. Log individual device click proof
     const ip = event.headers["x-forwarded-for"] || event.headers["client-ip"];
     await Click.create({ page, tag, deviceId, ip, country });
 
-    // 3. Increment the Master Aggregate Record
-    // Since you deleted the unique index, this will succeed even with the logs present
     const updatedMaster = await Click.findOneAndUpdate(
       { page, tag, deviceId: { $exists: false } }, 
       { 
@@ -70,7 +84,6 @@ export async function handler(event, context) {
   } catch (err) {
     console.error("Track error:", err);
     
-    // Handle E11000 race condition (two fast clicks from same device)
     if (err.code === 11000) {
        const master = await Click.findOne({ page, tag, deviceId: { $exists: false } });
        return {
