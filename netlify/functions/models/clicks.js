@@ -1,14 +1,14 @@
 import mongoose from "mongoose";
 
 const clickSchema = new mongoose.Schema({
-  page: String,
-  tag: String,
+  page: { type: String, required: true },
+  tag: { type: String, required: true },
   country: String,
-  deviceId: String,
+  deviceId: String, // Individual logs will have this; master record will NOT.
   ip: String,
   count: { type: Number, default: 0 },
-  lastClickAt: Date
+  lastClickAt: { type: Date, default: Date.now }
 });
 
-// Prevent model recompilation on Vercel Serverless
+// Important: Prevents model recompilation during hot-reloads on Serverless environments
 export default mongoose.models.Click || mongoose.model("Click", clickSchema);

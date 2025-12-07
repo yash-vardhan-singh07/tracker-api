@@ -11,26 +11,21 @@ async function connectDB() {
 }
 
 export async function handler(event, context) {
-  const origin = event.headers.origin;
+  const requestOrigin = event.headers.origin;
 
-  const commonHeaders = {
-    // Allows your Vercel URL to access this function
-    "Access-Control-Allow-Origin": origin || "*",
+  const headers = {
+    "Access-Control-Allow-Origin": requestOrigin || "*",
     "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Credentials": "true",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
     "Content-Type": "application/json"
   };
 
-  // 1. MUST return headers for OPTIONS (Pre-flight request)
+  // Handle pre-flight request
   if (event.httpMethod === "OPTIONS") {
-    return {
-      statusCode: 200,
-      headers: commonHeaders,
-      body: ""
-    };
+    return { statusCode: 200, headers, body: "" };
   }
 
+  // Restrict to GET method
   if (event.httpMethod !== "GET") {
     return {
       statusCode: 405,
@@ -43,18 +38,17 @@ export async function handler(event, context) {
     await connectDB();
 
     const params = event.queryStringParameters;
-    const page = params?.page;
-    const tag = params?.tag;
+    const { page, tag } = params || {};
 
-    /** * IMPORTANT: This query identifies the "Master" aggregate documents.
-     * Documents with deviceId are individual logs used for blocking repeats.
-     * Documents without deviceId store the actual sum of unique clicks.
+    /** * IMPORTANT: The Query Filter
+     * masterQuery looks for the aggregate document that stores the sum.
+     * It specifically looks for docs where deviceId IS NOT present.
      */
-    const counterQuery = { deviceId: { $exists: false }, count: { $exists: true } };
+    const masterQuery = { deviceId: { $exists: false }, count: { $exists: true } };
 
-    // 1. Get unique count for a single specific offer
+    // 1. Fetch statistics for a specific offer
     if (page && tag) {
-      const record = await Click.findOne({ ...counterQuery, page, tag });
+      const record = await Click.findOne({ ...masterQuery, page, tag });
       return { 
         statusCode: 200, 
         headers, 
@@ -62,22 +56,27 @@ export async function handler(event, context) {
       };
     }
 
-    // 2. Summary for a landing page (shows all offer counts for that page)
+    // 2. Fetch all counts for a specific landing page
     if (page) {
-      const records = await Click.find({ ...counterQuery, page }).sort({ count: -1 });
+      const records = await Click.find({ ...masterQuery, page }).sort({ count: -1 });
       return { statusCode: 200, headers, body: JSON.stringify(records) };
     }
 
-    // 3. Global summary (for the main Admin Dashboard table)
-    const all = await Click.find(counterQuery).sort({ page: 1, count: -1 });
-    return { statusCode: 200, headers, body: JSON.stringify(all) };
+    // 3. Global Stats: Get all aggregated counts for the admin table
+    const all = await Click.find(masterQuery).sort({ page: 1, count: -1 });
+    
+    return { 
+      statusCode: 200, 
+      headers, 
+      body: JSON.stringify(all) 
+    };
 
   } catch (err) {
-    console.error("Stats aggregation error:", err);
+    console.error("Stats fetching error:", err);
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: "Failed to load aggregated data" })
+      body: JSON.stringify({ error: "Database query failed", details: err.message })
     };
   }
 }
