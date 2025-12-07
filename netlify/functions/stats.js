@@ -39,11 +39,13 @@ export async function handler(event, context) {
     const page = params?.page;
     const tag = params?.tag;
 
-    // Filter to exclude individual click logs (docs with deviceId) 
-    // and only include the counter documents.
+    /** * IMPORTANT: This query identifies the "Master" aggregate documents.
+     * Documents with deviceId are individual logs used for blocking repeats.
+     * Documents without deviceId store the actual sum of unique clicks.
+     */
     const counterQuery = { deviceId: { $exists: false }, count: { $exists: true } };
 
-    // 1. Specific stat for a single offer tag on a specific page
+    // 1. Get unique count for a single specific offer
     if (page && tag) {
       const record = await Click.findOne({ ...counterQuery, page, tag });
       return { 
@@ -53,22 +55,22 @@ export async function handler(event, context) {
       };
     }
 
-    // 2. Summary for a specific landing page
+    // 2. Summary for a landing page (shows all offer counts for that page)
     if (page) {
       const records = await Click.find({ ...counterQuery, page }).sort({ count: -1 });
       return { statusCode: 200, headers, body: JSON.stringify(records) };
     }
 
-    // 3. Global summary for all pages
+    // 3. Global summary (for the main Admin Dashboard table)
     const all = await Click.find(counterQuery).sort({ page: 1, count: -1 });
     return { statusCode: 200, headers, body: JSON.stringify(all) };
 
   } catch (err) {
-    console.error("Stats fetching error:", err);
+    console.error("Stats aggregation error:", err);
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: "Failed to load stats" })
+      body: JSON.stringify({ error: "Failed to load aggregated data" })
     };
   }
 }
