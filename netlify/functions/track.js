@@ -13,14 +13,21 @@ export async function handler(event, context) {
   const origin = event.headers.origin;
 
   const commonHeaders = {
+    // Allows your Vercel URL to access this function
     "Access-Control-Allow-Origin": origin || "*",
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Credentials": "true",
     "Content-Type": "application/json"
   };
 
+  // 1. MUST return headers for OPTIONS (Pre-flight request)
   if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 200, headers: commonHeaders, body: "" };
+    return {
+      statusCode: 200,
+      headers: commonHeaders,
+      body: ""
+    };
   }
 
   try {

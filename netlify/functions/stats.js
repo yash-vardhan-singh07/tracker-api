@@ -11,17 +11,24 @@ async function connectDB() {
 }
 
 export async function handler(event, context) {
-  const requestOrigin = event.headers.origin;
+  const origin = event.headers.origin;
 
-  const headers = {
-    "Access-Control-Allow-Origin": requestOrigin || "*",
+  const commonHeaders = {
+    // Allows your Vercel URL to access this function
+    "Access-Control-Allow-Origin": origin || "*",
     "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Credentials": "true",
     "Content-Type": "application/json"
   };
 
+  // 1. MUST return headers for OPTIONS (Pre-flight request)
   if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 200, headers, body: "" };
+    return {
+      statusCode: 200,
+      headers: commonHeaders,
+      body: ""
+    };
   }
 
   if (event.httpMethod !== "GET") {
