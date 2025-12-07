@@ -10,9 +10,8 @@ async function connectDB() {
 }
 
 export async function handler(event, context) {
-  const origin = event.headers.origin;
   const commonHeaders = {
-    "Access-Control-Allow-Origin": origin || "*",
+    "Access-Control-Allow-Origin": event.headers.origin || "*",
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Content-Type": "application/json"
@@ -24,32 +23,45 @@ export async function handler(event, context) {
     await connectDB();
     const { page, tag, country, deviceId } = JSON.parse(event.body);
 
-    // 1. Check if device has logged a click before
+    // 1. Strict Check: Does this specific device log exist?
     const existingLog = await Click.findOne({ page, tag, deviceId });
     if (existingLog) {
-      const master = await Click.findOne({ page, tag, deviceId: { $exists: false } });
+      const currentMaster = await Click.findOne({ page, tag, deviceId: { $exists: false } });
       return { 
         statusCode: 200, 
         headers: commonHeaders, 
-        body: JSON.stringify({ success: false, message: "Blocked", count: master?.count || 0 }) 
+        body: JSON.stringify({ success: false, message: "Repeat user blocked", count: currentMaster?.count || 0 }) 
       };
     }
 
-    // 2. INCREMENT Master Record (No deviceId here)
+    // 2. Create the Device Log (The "Gatekeeper")
+    const ip = event.headers["x-forwarded-for"] || event.headers["client-ip"];
+    await Click.create({ page, tag, deviceId, ip, country });
+
+    // 3. Increment Master Counter ONLY after individual log creation is confirmed
     const masterUpdate = await Click.findOneAndUpdate(
       { page, tag, deviceId: { $exists: false } }, 
       { $inc: { count: 1 }, $set: { lastClickAt: new Date(), country } },
       { new: true, upsert: true }
     );
 
-    // 3. CREATE Device Log (Proof of unique click)
-    await Click.create({ 
-      page, tag, deviceId, country, 
-      ip: event.headers["x-forwarded-for"] || event.headers["client-ip"] 
-    });
+    return {
+      statusCode: 200,
+      headers: commonHeaders,
+      body: JSON.stringify({ success: true, count: masterUpdate.count })
+    };
 
-    return { statusCode: 200, headers: commonHeaders, body: JSON.stringify({ success: true, count: masterUpdate.count }) };
   } catch (err) {
+    // If Mongo prevents a duplicate log via index, fetch the count and return
+    if (err.code === 11000) {
+      const currentMaster = await Click.findOne({ page, tag, deviceId: { $exists: false } });
+      return { 
+        statusCode: 200, 
+        headers: commonHeaders, 
+        body: JSON.stringify({ success: false, message: "Blocked unique index conflict", count: currentMaster?.count }) 
+      };
+    }
+
     return { statusCode: 500, headers: commonHeaders, body: JSON.stringify({ error: err.message }) };
   }
 }
