@@ -10,7 +10,7 @@ async function connectDB() {
 }
 
 // 1. Define allowed countries (using ISO codes)
-const ALLOWED_COUNTRIES = ["US", "CA", "GB", "AU","IN"];
+const ALLOWED_COUNTRIES = ["US", "CA", "GB", "AU"];
 
 export async function handler(event, context) {
   const origin = event.headers.origin;
